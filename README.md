@@ -5,11 +5,17 @@ This repository contains code for predicting hepatocellular carcinoma (HCC) usin
 ## Project Structure
 
 ├── dataset.py # Dataset processing module
+
 ├── models.py # Model definition module
+
 ├── train.py # Training and evaluation module
+
 ├── visualization.py # Visualization functions module
+
 ├── main.py # Main script to run the entire process
+
 ├── requirements.txt # Python dependencies
+
 └── README.md # Project documentation
 
 
