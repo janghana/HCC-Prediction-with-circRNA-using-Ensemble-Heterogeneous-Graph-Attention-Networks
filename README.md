@@ -36,17 +36,25 @@ Place your dataset files (`train.csv`, `val.csv`, `test.csv`) in the `./dataset/
 
 Run the main script with the necessary arguments:
 ```bash
-python3 main.py --train_path ./dataset/re_train.csv --val_path ./dataset/re_val.csv --test_path ./dataset/re_test.csv --xgb_model_path xgboost_model_5.json --hidden_channels 512 --out_channels 2 --num_heads 8 --num_layers 2
+python3 main.py --train_path ./dataset/train.csv --val_path ./dataset/val.csv --test_path ./dataset/test.csv --xgb_model_path xgboost_model_5.json --hidden_channels 512 --out_channels 2 --num_heads 8 --num_layers 2
 ```
 
 ### Arguments
 --train_path: Path to the training dataset (default: ./dataset/re_train.csv)
+
+
 --val_path: Path to the validation dataset (default: ./dataset/re_val.csv)
+
 --test_path: Path to the test dataset (default: ./dataset/re_test.csv)
+
 --xgb_model_path: Path to the pre-trained XGBoost model (default: xgboost_model_5.json)
+
 --hidden_channels: Number of hidden channels in the HAN model (default: 512)
+
 --out_channels: Number of output channels in the HAN model (default: 2)
+
 --num_heads: Number of attention heads in the HAN model (default: 8)
+
 --num_layers: Number of layers in the HAN model (default: 2)
 
 ### File Descriptions
