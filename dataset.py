@@ -1,52 +1,38 @@
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 import torch
-from sklearn.preprocessing import LabelEncoder
 from torch_geometric.data import HeteroData
 
-class CircRNADataset:
-    def __init__(self, train_path, val_path, test_path):
-        self.train_data = pd.read_csv(train_path)
-        self.val_data = pd.read_csv(val_path)
-        self.test_data = pd.read_csv(test_path)
-        self.label_encoder = LabelEncoder()
+def load_and_preprocess_data(train_path, val_path, test_path):
+    train_df = pd.read_csv(train_path)
+    val_df = pd.read_csv(val_path)
+    test_df = pd.read_csv(test_path)
 
-        self.train_data['label'] = self.label_encoder.fit_transform(self.train_data['label'])
-        self.val_data['label'] = self.label_encoder.fit_transform(self.val_data['label'])
-        self.test_data['label'] = self.label_encoder.fit_transform(self.test_data['label'])
+    def preprocess_data(df):
+        features = df[['average_log2SRPTM', 'average_read_counts']].values
+        labels = df['label'].values
+        circRNA_nodes = df['circRNA'].values
+        host_gene_nodes = df['host_gene'].values
+        return features, labels, circRNA_nodes, host_gene_nodes
 
-        self.circRNA_names = list(self.train_data['circRNA'].unique())
-        self.gene_names = list(self.train_data['host_gene'].unique())
+    train_features, train_labels, train_circRNA_nodes, train_host_gene_nodes = preprocess_data(train_df)
+    val_features, val_labels, val_circRNA_nodes, val_host_gene_nodes = preprocess_data(val_df)
+    test_features, test_labels, test_circRNA_nodes, test_host_gene_nodes = preprocess_data(test_df)
 
-    def process(self, data):
-        hetero_data = HeteroData()
+    scaler = StandardScaler()
+    train_features = scaler.fit_transform(train_features)
+    val_features = scaler.transform(val_features)
+    test_features = scaler.transform(test_features)
 
-        circRNA_ids = data['circRNA'].unique()
-        gene_ids = data['host_gene'].unique()
+    return train_features, train_labels, val_features, val_labels, test_features, test_labels, train_circRNA_nodes, train_host_gene_nodes, val_circRNA_nodes, val_host_gene_nodes, test_circRNA_nodes, test_host_gene_nodes
 
-        circRNA_index = {id: idx for idx, id in enumerate(circRNA_ids)}
-        gene_index = {id: idx for idx, id in enumerate(gene_ids)}
-
-        hetero_data['circRNA'].num_nodes = len(circRNA_ids)
-        hetero_data['gene'].num_nodes = len(gene_ids)
-
-        circRNA_to_gene = [(circRNA_index[row['circRNA']], gene_index[row['host_gene']])
-                           for idx, row in data.iterrows()]
-        gene_to_circRNA = [(gene_index[row['host_gene']], circRNA_index[row['circRNA']])
-                           for idx, row in data.iterrows()]
-
-        hetero_data['circRNA', 'interacts_with', 'gene'].edge_index = torch.tensor(circRNA_to_gene, dtype=torch.long).t().contiguous()
-        hetero_data['gene', 'rev_interacts_with', 'circRNA'].edge_index = torch.tensor(gene_to_circRNA, dtype=torch.long).t().contiguous()
-
-        hetero_data['circRNA'].x = torch.tensor(data[['average_log2SRPTM', 'average_read_counts']].values, dtype=torch.float)
-        hetero_data['gene'].x = torch.tensor(data[['position_Exon', 'position_Intron', 'gene_type_lncRNA', 'gene_type_mRNA']].values, dtype=torch.float)
-
-        hetero_data['circRNA'].y = torch.tensor(data['label'].values, dtype=torch.long)
-
-        return hetero_data
-
-    def get_data(self):
-        train_data = self.process(self.train_data)
-        val_data = self.process(self.val_data)
-        test_data = self.process(self.test_data)
-
-        return train_data, val_data, test_data
+def create_hetero_data(features, circRNA_nodes, host_gene_nodes, labels):
+    data = HeteroData()
+    data['circRNA'].x = torch.tensor(features, dtype=torch.float)
+    data['host_gene'].x = torch.tensor(features, dtype=torch.float)  # 임시로 동일한 features 사용
+    data['circRNA', 'interacts', 'host_gene'].edge_index = torch.tensor(
+        [range(len(circRNA_nodes)), range(len(host_gene_nodes))], dtype=torch.long)
+    data['host_gene', 'interacts', 'circRNA'].edge_index = torch.tensor(
+        [range(len(host_gene_nodes)), range(len(circRNA_nodes))], dtype=torch.long)
+    data['circRNA'].y = torch.tensor(labels, dtype=torch.long)
+    return data

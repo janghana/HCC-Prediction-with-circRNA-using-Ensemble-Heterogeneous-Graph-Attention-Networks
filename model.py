@@ -1,55 +1,38 @@
 import torch
-from torch_geometric.nn import HANConv, Linear
 import torch.nn.functional as F
+from torch_geometric.nn import HANConv
+import xgboost as xgb
+from sklearn.metrics import accuracy_score, classification_report
 
-class CircHANConv(HANConv):
-    def forward(self, x_dict, edge_index_dict, return_attention_weights=False):
-        out_dict = super().forward(x_dict, edge_index_dict)
-        if return_attention_weights:
-            attention_weights = self._compute_attention_weights(x_dict, edge_index_dict)
-            return out_dict, attention_weights
-        return out_dict
-    
-    def _compute_attention_weights(self, x_dict, edge_index_dict):
-        attention_weights = torch.rand(len(x_dict['circRNA']), len(edge_index_dict[('circRNA', 'interacts_with', 'gene')][1]))
-        return attention_weights
+class HAN(torch.nn.Module):
+    def __init__(self, in_channels, out_channels, metadata, heads1, dropout1, heads2, dropout2):
+        super(HAN, self).__init__()
+        self.conv1 = HANConv(in_channels, out_channels, metadata=metadata, heads=heads1, dropout=dropout1, cat=False)
+        self.conv2 = HANConv(out_channels, out_channels, metadata=metadata, heads=heads2, dropout=dropout2, cat=False)
 
-class HANModel(torch.nn.Module):
-    def __init__(self, hidden_channels, out_channels, num_heads, num_layers):
-        super(HANModel, self).__init__()
-        metadata = (['circRNA', 'gene'], [('circRNA', 'interacts_with', 'gene'), ('gene', 'rev_interacts_with', 'circRNA')])
+    def forward(self, x_dict, edge_index_dict):
+        x_dict = self.conv1(x_dict, edge_index_dict)
+        x_dict = {key: F.elu(x) for key, x in x_dict.items()}
+        x_dict = self.conv2(x_dict, edge_index_dict)
+        return x_dict
 
-        self.han_convs = torch.nn.ModuleList()
-        for _ in range(num_layers):
-            self.han_convs.append(CircHANConv(
-                in_channels=hidden_channels if _ > 0 else {'circRNA': 2, 'gene': 4},
-                out_channels=hidden_channels,
-                heads=num_heads,
-                metadata=metadata,
-                dropout=0.2
-            ))
-
-        self.lin1 = Linear(hidden_channels, hidden_channels // 2)
-        self.lin2 = Linear(hidden_channels // 2, out_channels)
-        self.dropout = torch.nn.Dropout(p=0.3)
-
-    def forward(self, x_dict, edge_index_dict, return_attention_weights=False):
-        attention_weights = []
-        for conv in self.han_convs:
-            if return_attention_weights:
-                x_dict, attn = conv(x_dict, edge_index_dict, return_attention_weights=True)
-                attention_weights.append(attn)
-            else:
-                x_dict = conv(x_dict, edge_index_dict)
-            x_dict = {key: F.relu(self.dropout(x)) for key, x in x_dict.items()}
-        
-        circRNA_x = x_dict['circRNA']
-        out = self.lin1(circRNA_x)
-        out = F.relu(out)
-        out = self.lin2(out)
-        if return_attention_weights:
-            return {'circRNA': out}, attention_weights
-        return {'circRNA': out}
-
-    def get_node_embeddings(self, x_dict, edge_index_dict):
-        return self.forward(x_dict, edge_index_dict, return_attention_weights=True)
+def train_xgboost_model(train_embeddings, train_labels, test_embeddings, test_labels, n_estimators, learning_rate, max_depth, subsample, colsample_bytree, early_stopping_rounds):
+    xgb_model = xgb.XGBClassifier(
+        objective='binary:logistic',
+        use_label_encoder=False,
+        n_estimators=n_estimators,
+        learning_rate=learning_rate,
+        max_depth=max_depth,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        early_stopping_rounds=early_stopping_rounds
+    )
+    xgb_model.fit(
+        train_embeddings, train_labels,
+        eval_set=[(train_embeddings, train_labels), (test_embeddings, test_labels)],
+        verbose=True
+    )
+    test_preds = xgb_model.predict(test_embeddings)
+    accuracy = accuracy_score(test_labels, test_preds)
+    report = classification_report(test_labels, test_preds, output_dict=True)
+    return accuracy, report

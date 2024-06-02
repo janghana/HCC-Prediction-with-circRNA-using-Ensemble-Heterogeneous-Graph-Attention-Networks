@@ -1,48 +1,52 @@
 import torch
-from torch.nn import MSELoss
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import numpy as np
+from dataset import load_and_preprocess_data, create_hetero_data
+from model import HAN, train_xgboost_model
+from utils import run_experiments, train_han_model, extract_embeddings
+from option import parse_args
 
-def train_model(model, train_data, val_data, train_preds, device):
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
-    criterion = MSELoss()
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=300, eta_min=0.00001)
+def main():
+    args = parse_args()
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    metadata = (['circRNA', 'host_gene'], [('circRNA', 'interacts', 'host_gene'), ('host_gene', 'interacts', 'circRNA')])
 
-    for epoch in range(1, 2):
-        model.train()
-        optimizer.zero_grad()
-        train_data = train_data.to(device)
-        print(epoch)
-        x_dict = {
-            'circRNA': train_data['circRNA'].x,
-            'gene': train_data['gene'].x
-        }
-        
-        out, attention_weights = model(x_dict, train_data.edge_index_dict, return_attention_weights=True)
-        out = out['circRNA'][:, 1]  # Get probability of class 1
-        loss = criterion(out, torch.tensor(train_preds, dtype=torch.float, device=device))
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
-        if epoch % 100 == 0:
-            print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}')
-    return model
-
-def evaluate_metrics(y_true, y_pred):
-    accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred)
-    recall = recall_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
-    return accuracy, precision, recall, f1
-
-def get_embeddings_and_attention(model, data, device):
-    model.eval()
-    data = data.to(device)
-    
-    x_dict = {
-        'circRNA': data['circRNA'].x,
-        'gene': data['gene'].x
+    han_params = {
+        'in_channels': args.in_channels,
+        'out_channels': args.out_channels,
+        'metadata': metadata,
+        'heads1': args.heads1,
+        'dropout1': args.dropout1,
+        'heads2': args.heads2,
+        'dropout2': args.dropout2,
     }
-    
-    embeddings, attention_weights = model.get_node_embeddings(x_dict, data.edge_index_dict)
-    return embeddings['circRNA'].cpu().detach().numpy(), data['circRNA'].y.cpu().detach().numpy(), attention_weights
+
+    train_params = {
+        'lr': args.lr,
+        'weight_decay': args.weight_decay,
+        'epochs': args.epochs
+    }
+
+    xgboost_params = {
+        'n_estimators': args.n_estimators,
+        'learning_rate': args.learning_rate,
+        'max_depth': args.max_depth,
+        'subsample': args.subsample,
+        'colsample_bytree': args.colsample_bytree,
+        'early_stopping_rounds': args.early_stopping_rounds
+    }
+
+    run_experiments(
+        n_experiments=args.n_experiments,
+        load_and_preprocess_data=lambda: load_and_preprocess_data(args.train_path, args.val_path, args.test_path),
+        create_hetero_data=create_hetero_data,
+        HAN=HAN,
+        train_han_model=train_han_model,
+        train_xgboost_model=train_xgboost_model,
+        device=device,
+        metadata=metadata,
+        han_params=han_params,
+        xgboost_params=xgboost_params,
+        train_params=train_params
+    )
+
+if __name__ == "__main__":
+    main()
