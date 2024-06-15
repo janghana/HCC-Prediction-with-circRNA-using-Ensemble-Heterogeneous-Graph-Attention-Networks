@@ -31,14 +31,13 @@ pip install -r requirements.txt
 ### Requirements.txt
 
 ```txt
-txt
-Copy code
-pandas
-numpy
-torch
-torch-geometric
-scikit-learn
-xgboost
+pandas==1.3.5
+torch==1.10.0
+scikit-learn==0.24.2
+xgboost==1.5.1
+torch-geometric==2.0.3
+matplotlib==3.4.3
+seaborn==0.11.2
 ```
 
 
