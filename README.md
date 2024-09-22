@@ -73,8 +73,23 @@ This is the main script to run the entire pipeline. It uses argparse to accept v
 Running the Model
 To run the model, use the following command:
 
+### Train
 ```bash
-python train.py --train_path ./dataset/train.csv --val_path ./dataset/val.csv --test_path ./dataset/test.csv --n_experiments 5 --in_channels 2 --out_channels 64 --heads1 8 --dropout1 0.6 --heads2 1 --dropout2 0.6 --lr 0.005 --weight_decay 0.0005 --epochs 100 --n_estimators 50000 --learning_rate 0.1 --max_depth 6 --subsample 1 --colsample_bytree 1 --early_stopping_rounds 150
+python train.py --train_path ./dataset/train.csv --val_path ./dataset/val.csv --n_experiments 5 --in_channels 2 --out_channels 64 --heads1 8 --dropout1 0.6 --heads2 1 --dropout2 0.6 --lr 0.05 --weight_decay 0.0005 --epochs 50 --n_estimators 50000 --learning_rate 0.1 --max_depth 6 --subsample 1 --colsample_bytree 1 --early_stopping_rounds 1000
+```
+
+### Test
+```bash
+python test.py --test_path ./dataset/test.csv --n_experiments 5 --in_channels 2 --out_channels 64 --heads1 8 --dropout1 0.6 --heads2 1 --dropout2 0.6 --lr 0.05 --weight_decay 0.0005 --epochs 50 --n_estimators 50000 --learning_rate 0.1 --max_depth 6 --subsample 1 --colsample_bytree 1 --early_stopping_rounds 1000
+```
+
+### Classification Report
+
+When the model is run, it provides a detailed classification report summarizing the precision, recall, F1-score, and support for each class (Class 0 and Class 1) in the dataset:
+```bash
+===== Classification Report ===== Accuracy: 0.9612
+Class 0: Precision: 0.9565 Recall: 0.9676 F1-Score: 0.9620 Support: 5864.0
+Class 1: Precision: 0.9661 Recall: 0.9546 F1-Score: 0.9603 Support: 5678.0
 ```
 
 Argument Descriptions
