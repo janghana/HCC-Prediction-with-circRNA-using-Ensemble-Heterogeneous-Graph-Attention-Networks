@@ -6,7 +6,8 @@ def parse_args():
     parser.add_argument('--val_path', type=str, default='./dataset/val.csv', help='Path to the validation data')
     parser.add_argument('--test_path', type=str, default='./dataset/test.csv', help='Path to the test data')
     parser.add_argument('--n_experiments', type=int, default=5, help='Number of experiments to run')
-    
+    parser.add_argument('--model_path', type=str, required=False, help='Path to the saved model for inference')
+
     # HAN Model parameters
     parser.add_argument('--in_channels', type=int, default=2, help='Number of input channels for HAN model')
     parser.add_argument('--out_channels', type=int, default=64, help='Number of output channels for HAN model')
